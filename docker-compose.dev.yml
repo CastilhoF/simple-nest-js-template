@@ -1,0 +1,66 @@
+version: '3.9'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    env_file:
+      - .env.development
+    restart: always
+    ports:
+      - '${APP_PORT}:${APP_PORT}'
+    volumes:
+      - ./abis:/usr/app/abis
+      - ./prisma:/usr/app/prisma
+      - ./src:/usr/app/src
+      - ./temp:/usr/app/temp
+      - ./test:/usr/app/test
+      - ./../logs:/usr/app/logs
+    networks:
+      - mp-network
+    depends_on:
+      - no-relational-db
+      - relational-db
+      - redis
+  redis:
+    env_file:
+      - .env.development
+    image: redis:latest
+    command: ['redis-server', '--requirepass', '${CACHE_PASSWORD}']
+    restart: always
+    ports:
+      - '${CACHE_PORT}:${CACHE_PORT}'
+    networks:
+      - mp-network
+  relational-db:
+    env_file:
+      - .env.development
+    image: mysql:latest
+    restart: always
+    command: --init-file /docker-entrypoint-initdb.d/init.sh
+    environment:
+      - MYSQL_DATABASE=${DATABASE_NAME}
+      - MYSQL_PASSWORD=${DATABASE_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DATABASE_PASSWORD}
+    ports:
+      - '${DATABASE_PORT}:${DATABASE_PORT}'
+    networks:
+      - mp-network
+    volumes:
+      - ./init.sh:/docker-entrypoint-initdb.d/init.sh
+  no-relational-db:
+    image: mongo:latest
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${NO_RELATIONAL_DATABASE_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${NO_RELATIONAL_DATABASE_PASSWORD}
+    ports:
+      - '${NO_RELATIONAL_DATABASE_PORT}:${NO_RELATIONAL_DATABASE_PORT}'
+    networks:
+      - mp-network
+volumes:
+  app-log:
+    external: true
+networks:
+  mp-network:
+    external: true
